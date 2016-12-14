@@ -17,20 +17,20 @@
 #include <string.h>
 
 
-#define P_SIZE 1024 // Page size
+#define P_SIZE 1024 // Tamaño de pagina (Page_Size)
 
-#define RID_SIZE 8  // RecordId size
+#define RID_SIZE 8  // Tamaño del record (RecordId size)
 #define PID_SIZE 4  // PageId size
-#define K_SIZE 4    // Key size
+#define K_SIZE 4    // Tamaño de la llave(Key size)
 
-#define L_OFFSET 12 // Leaf node offset
-#define NL_OFFSET 8 // Non-leaf node offset
+#define L_OFFSET 12 // Offset de la hoja(Leaf offset)
+#define NL_OFFSET 8 // Offset de una no-hoja(Non-leaf offset)
 
-#define N_PTR 86  // Max. number of pointers for leaf nodes
-#define N_KEY 85    // Max. number of keys for leaf nodes
+#define N_PTR 86    // Numero maximo de punteros
+#define N_KEY 85    // Numero maximo de llaves
 
-#define NONE -1     // INIT VALUE FOR ALL THE NODES
-#define EC -100     // ERROR CODE
+#define NONE -1     // Valor inicial de los nodos
+#define EC -100     // ERROR CODIGO
 /**
  * BTLeafNode: The class representing a B+tree leaf node.
  */
