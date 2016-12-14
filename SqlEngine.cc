@@ -37,6 +37,7 @@ RC SqlEngine::select(int attr, const string& table, const vector<SelCond>& cond)
 {
   RecordFile rf;   // RecordFile containing the table
   RecordId   rid;  // record cursor for table scanning
+  BTreeIndex btree; 
 
   RC     rc;
   int    key;     
