@@ -194,19 +194,19 @@ RC SqlEngine::selectOnIndex(int attr, const std::string& table, BTreeIndex &btre
   rid.sid = 0; 
   
   
-  int key_min = INT_MIN;  
-  int key_max = INT_MAX;
+  int lowerKey = INT_MIN;  
+  int upperKey = INT_MAX;
   int key_exact = 0;      
   bool EQ_active = false; 
   bool NEQ_active = false;
-  vector<int> key_neq_vals; 
+  vector<int> keyValues; 
   
   
   string val_exact = "";
   bool val_cond = false;
   bool val_NEQ_active = false;
   bool val_EQ_active = false;
-  vector<string> val_neq_vals;
+  vector<string> NEQ_Values;
 
   
   bool fatal_error = false;
@@ -236,30 +236,30 @@ RC SqlEngine::selectOnIndex(int attr, const std::string& table, BTreeIndex &btre
           if (EQ_active && key_exact == current_key)  
             fatal_error = true;
 
-          key_neq_vals.push_back(current_key);
+          keyValues.push_back(current_key);
           NEQ_active = true;
 
           break;
         case SelCond::GT: 
           current_key++; 
-          if (key_min < current_key)
-            key_min = current_key;
+          if (lowerKey < current_key)
+            lowerKey = current_key;
 
           break;
         case SelCond::GE:
-          if (key_min < current_key)
-            key_min = current_key;
+          if (lowerKey < current_key)
+            lowerKey = current_key;
           
           break;
         case SelCond::LT: 
           current_key--;
-          if (key_max > current_key)
-            key_max = current_key;
+          if (upperKey > current_key)
+            upperKey = current_key;
           
           break;
         case SelCond::LE:
-          if (key_max > current_key)
-            key_max = current_key;
+          if (upperKey > current_key)
+            upperKey = current_key;
           
           break;
       }
@@ -282,7 +282,7 @@ RC SqlEngine::selectOnIndex(int attr, const std::string& table, BTreeIndex &btre
         if (val_EQ_active && val_exact == current_value) 
             fatal_error = true;
 
-          val_neq_vals.push_back(current_value);
+          NEQ_Values.push_back(current_value);
           val_NEQ_active = true;
 
           break;
@@ -295,15 +295,15 @@ RC SqlEngine::selectOnIndex(int attr, const std::string& table, BTreeIndex &btre
   }
 
   if (DEBUG) printf("SQLENGINE -- Conditions have been determined:\n");
-  if (DEBUG) printf("key_min = %d, key_max = %d, key_exact = %d;\n", key_min, key_max, key_exact);
+  if (DEBUG) printf("lowerKey = %d, upperKey = %d, key_exact = %d;\n", lowerKey, upperKey, key_exact);
   if (DEBUG) printf("EQ_active = %d, NEQ_active = %d\n", EQ_active, NEQ_active);
 
 
   if (!fatal_error) {
 
     if (!EQ_active) { 
-      btree.locate(key_min, cursor, 0);
-      btree.locate(key_max, end_cursor, 0);
+      btree.locate(lowerKey, cursor, 0);
+      btree.locate(upperKey, end_cursor, 0);
 
       if (DEBUG) printf("EQuality NOT active, located key min at cursor.pid = %d, cursor.eid = %d\n", cursor.pid, cursor.eid);
       if (DEBUG) printf("EQuality NOT active, located key max at end_cursor.pid = %d, end_cursor.eid = %d\n", end_cursor.pid, end_cursor.eid);
@@ -346,8 +346,8 @@ RC SqlEngine::selectOnIndex(int attr, const std::string& table, BTreeIndex &btre
       return 0;
     }
 
-    const int neq_val_len = val_neq_vals.size();
-    const int neq_key_len = key_neq_vals.size();
+    const int neq_val_len = NEQ_Values.size();
+    const int neq_key_len = keyValues.size();
 
     int count = 0;
 
@@ -373,14 +373,14 @@ RC SqlEngine::selectOnIndex(int attr, const std::string& table, BTreeIndex &btre
 
       if (NEQ_active) {
         for (int i = 0; i < neq_key_len; i++) {
-            if (key_neq_vals[i] == key) 
+            if (keyValues[i] == key) 
               violation = true; 
         }
       }
 
       if (val_NEQ_active) {
         for (int i = 0; i < neq_val_len; i++) {
-            if (val_neq_vals[i] == value) 
+            if (NEQ_Values[i] == value) 
               violation = true;
         }
       }

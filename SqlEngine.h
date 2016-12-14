@@ -68,6 +68,7 @@ class SqlEngine {
    * @return error code. 0 if no error
    */
   static RC parseLoadLine(const std::string& line, int& key, std::string& value);
+  static RC indexSelect(int attr, const std::string& table, BTreeIndex& btree, const std::vector<SelCond>& conds);
 };
 
 #endif /* SQLENGINE_H */
