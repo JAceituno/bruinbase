@@ -12,12 +12,31 @@
 
 #include "RecordFile.h"
 #include "PageFile.h"
+#include <stdio.h>
+#include <stdlib.h>
+#include <string.h>
 
+
+#define P_SIZE 1024 // Page size
+
+#define RID_SIZE 8  // RecordId size
+#define PID_SIZE 4  // PageId size
+#define K_SIZE 4    // Key size
+
+#define L_OFFSET 12 // Leaf node offset
+#define NL_OFFSET 8 // Non-leaf node offset
+
+#define N_PTR 86  // Max. number of pointers for leaf nodes
+#define N_KEY 85    // Max. number of keys for leaf nodes
+
+#define NONE -1     // INIT VALUE FOR ALL THE NODES
+#define EC -100     // ERROR CODE
 /**
  * BTLeafNode: The class representing a B+tree leaf node.
  */
 class BTLeafNode {
   public:
+    BTLeafNode();
    /**
     * Insert the (key, rid) pair to the node.
     * Remember that all keys inside a B+tree node should be kept sorted.
@@ -97,7 +116,24 @@ class BTLeafNode {
     * @return 0 if successful. Return an error code if there is an error.
     */
     RC write(PageId pid, PageFile& pf);
+    void shiftKeysRight(int pos) {
+        //shift element right by one
+        char *loc = buffer + pos * L_OFFSET;
 
+        char* temp = (char*) malloc(P_SIZE);
+        memset(temp, NONE, P_SIZE);
+
+        memcpy(temp, loc, (getKeyCount() - pos) * L_OFFSET);
+        loc += L_OFFSET;
+        memcpy(loc, temp, (getKeyCount() - pos) * L_OFFSET);
+
+        free(temp);
+    }
+    void printKeys();
+    void initBuffer(char *buf, size_t size) {
+        memset(buffer, NONE, P_SIZE);
+        memcpy(buffer, buf, size);
+    }
   private:
    /**
     * The main memory buffer for loading the content of the disk page 
@@ -175,7 +211,26 @@ class BTNonLeafNode {
     * @return 0 if successful. Return an error code if there is an error.
     */
     RC write(PageId pid, PageFile& pf);
+    RC locate(int searchKey, int &eid);
+    RC readEntry(int eid, int& key, PageId& pid);
+    void shiftKeysRight(int pos) {
+        
+        char *loc = buffer + pos * NL_OFFSET;
+        
 
+        char* temp = (char*) malloc(P_SIZE);
+        memset(temp, NONE, P_SIZE);
+
+        memcpy(temp, loc, (getKeyCount() + 1 - pos) * NL_OFFSET);
+        loc += NL_OFFSET;
+        memcpy(loc, temp, (getKeyCount() + 1 - pos) * NL_OFFSET);
+        free(temp);
+    }
+    void printKeys();
+    void initBuffer(char *buf, size_t size) {
+        memset(buffer, NONE, P_SIZE);
+        memcpy(buffer, buf, size);
+    }
   private:
    /**
     * The main memory buffer for loading the content of the disk page 
