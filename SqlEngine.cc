@@ -20,8 +20,7 @@ using namespace std;
 // external functions and variables for load file and sql command parsing 
 extern FILE* sqlin;
 int sqlparse(void);
-
-
+#define fueraBichos 0
 RC SqlEngine::run(FILE* commandline)
 {
   fprintf(stdout, "Bruinbase> ");
@@ -287,16 +286,16 @@ RC SqlEngine::indexSelect(int attr, const std::string& table, BTreeIndex &btree,
 
           break;
         default:
-          if (DEBUG) printf("\nInvalid condition %d (which is not EQ or NEQ) detected with attr=2",cond[i].comp);
+          if (fueraBichos) printf("\nInvalid condition %d (which is not EQ or NEQ) detected with attr=2",cond[i].comp);
           fatal_error = true;
           break;
       }
     }
   }
 
-  if (DEBUG) printf("SQLENGINE -- Conditions have been determined:\n");
-  if (DEBUG) printf("lowerKey = %d, upperKey = %d, key_exact = %d;\n", lowerKey, upperKey, key_exact);
-  if (DEBUG) printf("EQ_active = %d, NEQ_active = %d\n", EQ_active, NEQ_active);
+  if (fueraBichos) printf("SQLENGINE -- Conditions have been determined:\n");
+  if (fueraBichos) printf("lowerKey = %d, upperKey = %d, key_exact = %d;\n", lowerKey, upperKey, key_exact);
+  if (fueraBichos) printf("EQ_active = %d, NEQ_active = %d\n", EQ_active, NEQ_active);
 
 
   if (!fatal_error) {
@@ -305,14 +304,14 @@ RC SqlEngine::indexSelect(int attr, const std::string& table, BTreeIndex &btree,
       btree.locate(lowerKey, cursor, 0);
       btree.locate(upperKey, end_cursor, 0);
 
-      if (DEBUG) printf("EQuality NOT active, located key min at cursor.pid = %d, cursor.eid = %d\n", cursor.pid, cursor.eid);
-      if (DEBUG) printf("EQuality NOT active, located key max at end_cursor.pid = %d, end_cursor.eid = %d\n", end_cursor.pid, end_cursor.eid);
+      if (fueraBichos) printf("EQuality NOT active, located key min at cursor.pid = %d, cursor.eid = %d\n", cursor.pid, cursor.eid);
+      if (fueraBichos) printf("EQuality NOT active, located key max at end_cursor.pid = %d, end_cursor.eid = %d\n", end_cursor.pid, end_cursor.eid);
 
 
     } else { 
       btree.locate(key_exact, cursor, 0);
 
-      if (DEBUG) printf("EQuality active, located key_exact at cursor.pid = %d, cursor.eid = %d\n", cursor.pid, cursor.eid);
+      if (fueraBichos) printf("EQuality active, located key_exact at cursor.pid = %d, cursor.eid = %d\n", cursor.pid, cursor.eid);
 
       btree.readForward(cursor, key, rid); 
 
@@ -354,10 +353,10 @@ RC SqlEngine::indexSelect(int attr, const std::string& table, BTreeIndex &btree,
     while(btree.readForward(cursor, key, rid) == 0) {
 
   
-      if (DEBUG) printf("readForward, currently key = %d, rid.pid = %d, rid.sid = %d\n", key, rid.pid, rid.sid);
-      if (DEBUG) printf("Searching, lower bound at cursor.pid = %d, cursor.eid = %d\n", cursor.pid, cursor.eid);
-      if (DEBUG) printf("Searching, upper bound at end_cursor.pid = %d, end_cursor.eid = %d\n", end_cursor.pid, end_cursor.eid);
-      if (DEBUG) printf("Searching, currently read count = %d\n", count);
+      if (fueraBichos) printf("readForward, currently key = %d, rid.pid = %d, rid.sid = %d\n", key, rid.pid, rid.sid);
+      if (fueraBichos) printf("Searching, lower bound at cursor.pid = %d, cursor.eid = %d\n", cursor.pid, cursor.eid);
+      if (fueraBichos) printf("Searching, upper bound at end_cursor.pid = %d, end_cursor.eid = %d\n", end_cursor.pid, end_cursor.eid);
+      if (fueraBichos) printf("Searching, currently read count = %d\n", count);
 
       if (attr != 4) { 
         if ((rc = rf.read(rid, key, value)) < 0) {
@@ -401,7 +400,7 @@ RC SqlEngine::indexSelect(int attr, const std::string& table, BTreeIndex &btree,
         count++;
       } else {
         printf("There is violation in the query\n");
-        continue; /
+        continue; 
       }
 
       if ((cursor.pid == end_cursor.pid) && (cursor.eid == end_cursor.eid)) { 
@@ -415,7 +414,7 @@ RC SqlEngine::indexSelect(int attr, const std::string& table, BTreeIndex &btree,
       fprintf(stdout, "%d\n", count);
     }
   } else {
-    printf("\nLogic Error detected in select conditions");
+    printf("\nSelect error");
   }
 
   rf.close();
