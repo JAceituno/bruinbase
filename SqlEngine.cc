@@ -180,7 +180,7 @@ RC SqlEngine::parseLoadLine(const string& line, int& key, string& value)
 
 
 
-RC SqlEngine::selectOnIndex(int attr, const std::string& table, BTreeIndex &btree, const vector<SelCond>& cond) {
+RC SqlEngine::indexSelect(int attr, const std::string& table, BTreeIndex &btree, const vector<SelCond>& cond) {
  
   IndexCursor cursor;     
   IndexCursor end_cursor; 
