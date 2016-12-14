@@ -5,10 +5,6 @@
  *
  * @author Junghoo "John" Cho <cho AT cs.ucla.edu>
  * @date 5/28/2008
- *
- * @author Zengwen Yuan
- * @author Chris Buonocore
- * @date 11/15/2015
  */
 
 #ifndef BTREENODE_H
