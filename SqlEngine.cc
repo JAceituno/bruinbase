@@ -1,4 +1,4 @@
-/**
+  /**
  * Copyright (C) 2008 by The Regents of the University of California
  * Redistribution of this file is permitted under the terms of the GNU
  * Public License (GPL).
@@ -6,7 +6,7 @@
  * @author Junghoo "John" Cho <cho AT cs.ucla.edu>
  * @date 3/24/2008
  */
-
+#include <climits>
 #include <cstdio>
 #include <cstring>
 #include <cstdlib>
@@ -176,4 +176,248 @@ RC SqlEngine::parseLoadLine(const string& line, int& key, string& value)
     if (loc != string::npos) { value.erase(loc); }
 
     return 0;
+}
+
+
+
+RC SqlEngine::selectOnIndex(int attr, const std::string& table, BTreeIndex &btree, const vector<SelCond>& cond) {
+ 
+  IndexCursor cursor;     
+  IndexCursor end_cursor; 
+  RecordFile rf;          
+  RecordId rid;          
+  string value;
+  int key;
+
+  int rc = 0;
+  rid.pid = 0; 
+  rid.sid = 0; 
+  
+  
+  int key_min = INT_MIN;  
+  int key_max = INT_MAX;
+  int key_exact = 0;      
+  bool EQ_active = false; 
+  bool NEQ_active = false;
+  vector<int> key_neq_vals; 
+  
+  
+  string val_exact = "";
+  bool val_cond = false;
+  bool val_NEQ_active = false;
+  bool val_EQ_active = false;
+  vector<string> val_neq_vals;
+
+  
+  bool fatal_error = false;
+
+  
+  if ((rc = rf.open(table + ".tbl", 'r')) < 0) {
+    fprintf(stderr, "Error: table %s does not exist\n", table.c_str());
+    return rc;
+  }
+
+  
+  for (unsigned i = 0; i < cond.size(); i++) {
+    if (cond[i].attr == 1) { 
+      int current_key = atoi(cond[i].value);
+      switch (cond[i].comp) {
+        case SelCond::EQ:
+          if (EQ_active && key_exact != current_key) 
+            fatal_error = true;
+          else if (NEQ_active && key_exact == current_key) 
+            fatal_error = true;
+
+          key_exact = current_key;    
+          EQ_active = true;
+
+          break;
+        case SelCond::NE:
+          if (EQ_active && key_exact == current_key)  
+            fatal_error = true;
+
+          key_neq_vals.push_back(current_key);
+          NEQ_active = true;
+
+          break;
+        case SelCond::GT: 
+          current_key++; 
+          if (key_min < current_key)
+            key_min = current_key;
+
+          break;
+        case SelCond::GE:
+          if (key_min < current_key)
+            key_min = current_key;
+          
+          break;
+        case SelCond::LT: 
+          current_key--;
+          if (key_max > current_key)
+            key_max = current_key;
+          
+          break;
+        case SelCond::LE:
+          if (key_max > current_key)
+            key_max = current_key;
+          
+          break;
+      }
+    } else { 
+      val_cond = true;
+     
+      string current_value(cond[i].value);
+      switch (cond[i].comp) {
+        case SelCond::EQ:
+          if (val_EQ_active && val_exact != current_value) 
+            fatal_error = true;
+          else if (val_NEQ_active && val_exact == current_value)  
+            fatal_error = true;
+
+          val_exact.assign(cond[i].value);
+          val_EQ_active = true;
+
+          break;
+        case SelCond::NE:
+        if (val_EQ_active && val_exact == current_value) 
+            fatal_error = true;
+
+          val_neq_vals.push_back(current_value);
+          val_NEQ_active = true;
+
+          break;
+        default:
+          if (DEBUG) printf("\nInvalid condition %d (which is not EQ or NEQ) detected with attr=2",cond[i].comp);
+          fatal_error = true;
+          break;
+      }
+    }
+  }
+
+  if (DEBUG) printf("SQLENGINE -- Conditions have been determined:\n");
+  if (DEBUG) printf("key_min = %d, key_max = %d, key_exact = %d;\n", key_min, key_max, key_exact);
+  if (DEBUG) printf("EQ_active = %d, NEQ_active = %d\n", EQ_active, NEQ_active);
+
+
+  if (!fatal_error) {
+
+    if (!EQ_active) { 
+      btree.locate(key_min, cursor, 0);
+      btree.locate(key_max, end_cursor, 0);
+
+      if (DEBUG) printf("EQuality NOT active, located key min at cursor.pid = %d, cursor.eid = %d\n", cursor.pid, cursor.eid);
+      if (DEBUG) printf("EQuality NOT active, located key max at end_cursor.pid = %d, end_cursor.eid = %d\n", end_cursor.pid, end_cursor.eid);
+
+
+    } else { 
+      btree.locate(key_exact, cursor, 0);
+
+      if (DEBUG) printf("EQuality active, located key_exact at cursor.pid = %d, cursor.eid = %d\n", cursor.pid, cursor.eid);
+
+      btree.readForward(cursor, key, rid); 
+
+      if (key == key_exact) {
+        if ((rc = rf.read(rid, key, value)) < 0) {
+          fprintf(stderr, "Error: while reading a tuple from table %s\n", table.c_str());
+          rf.close();
+          return rc;
+        }
+
+
+        switch (attr) {
+            case 1: 
+              fprintf(stdout, "%d\n", key);
+              break;
+            case 2:  
+              fprintf(stdout, "%s\n", value.c_str());
+              break;
+            case 3:  
+              fprintf(stdout, "%d '%s'\n", key, value.c_str());
+              break;
+            case 4: 
+              fprintf(stdout, "%d\n", 1);  
+              break;
+        }
+      } else {
+
+      }
+
+      rf.close();
+      return 0;
+    }
+
+    const int neq_val_len = val_neq_vals.size();
+    const int neq_key_len = key_neq_vals.size();
+
+    int count = 0;
+
+    while(btree.readForward(cursor, key, rid) == 0) {
+
+  
+      if (DEBUG) printf("readForward, currently key = %d, rid.pid = %d, rid.sid = %d\n", key, rid.pid, rid.sid);
+      if (DEBUG) printf("Searching, lower bound at cursor.pid = %d, cursor.eid = %d\n", cursor.pid, cursor.eid);
+      if (DEBUG) printf("Searching, upper bound at end_cursor.pid = %d, end_cursor.eid = %d\n", end_cursor.pid, end_cursor.eid);
+      if (DEBUG) printf("Searching, currently read count = %d\n", count);
+
+      if (attr != 4) { 
+        if ((rc = rf.read(rid, key, value)) < 0) {
+          fprintf(stderr, "Error: while reading a tuple from table %s\n", table.c_str());
+          rf.close();
+          return rc;
+        }
+      }
+
+
+      bool violation = false;
+
+
+      if (NEQ_active) {
+        for (int i = 0; i < neq_key_len; i++) {
+            if (key_neq_vals[i] == key) 
+              violation = true; 
+        }
+      }
+
+      if (val_NEQ_active) {
+        for (int i = 0; i < neq_val_len; i++) {
+            if (val_neq_vals[i] == value) 
+              violation = true;
+        }
+      }
+
+      if (!violation) {
+
+        switch (attr) {
+            case 1:  
+              fprintf(stdout, "%d\n", key);
+              break;
+            case 2:  
+              fprintf(stdout, "%s\n", value.c_str());
+              break;
+            case 3:  
+              fprintf(stdout, "%d '%s'\n", key, value.c_str());
+              break;
+        }
+        count++;
+      } else {
+        printf("There is violation in the query\n");
+        continue; /
+      }
+
+      if ((cursor.pid == end_cursor.pid) && (cursor.eid == end_cursor.eid)) { 
+
+
+        break; 
+      }
+    }
+
+    if (attr == 4) {
+      fprintf(stdout, "%d\n", count);
+    }
+  } else {
+    printf("\nLogic Error detected in select conditions");
+  }
+
+  rf.close();
+  return 0;
 }
