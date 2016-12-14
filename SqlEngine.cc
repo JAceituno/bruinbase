@@ -44,15 +44,25 @@ RC SqlEngine::select(int attr, const string& table, const vector<SelCond>& cond)
   int    count;
   int    diff;
 
-  // open the table file
+  string index_file = table + ".idx";
+  rc = btree.open((index_file).c_str(), 'r');
+
+  // if index file exists - use index select method
+  if (rc == 0) { 
+    rc = indexSelect(attr, table, btree, cond);
+    return rc;
+  }
+
+  // otherwise, we have to search without index
+  // scan the table file from the beginning
   if ((rc = rf.open(table + ".tbl", 'r')) < 0) {
     fprintf(stderr, "Error: table %s does not exist\n", table.c_str());
     return rc;
   }
 
-  // scan the table file from the beginning
   rid.pid = rid.sid = 0;
   count = 0;
+  
   while (rid < rf.endRid()) {
     // read the tuple
     if ((rc = rf.read(rid, key, value)) < 0) {
@@ -60,38 +70,38 @@ RC SqlEngine::select(int attr, const string& table, const vector<SelCond>& cond)
       goto exit_select;
     }
 
-    // check the conditions on the tuple
+    // check the conditions one by one on the tuple to see if they hold
     for (unsigned i = 0; i < cond.size(); i++) {
       // compute the difference between the tuple value and the condition value
       switch (cond[i].attr) {
       case 1:
-	diff = key - atoi(cond[i].value);
-	break;
+        diff = key - atoi(cond[i].value);
+        break;
       case 2:
-	diff = strcmp(value.c_str(), cond[i].value);
-	break;
+        diff = strcmp(value.c_str(), cond[i].value);
+        break;
       }
 
       // skip the tuple if any condition is not met
       switch (cond[i].comp) {
       case SelCond::EQ:
-	if (diff != 0) goto next_tuple;
-	break;
+        if (diff != 0) goto next_tuple;
+        break;
       case SelCond::NE:
-	if (diff == 0) goto next_tuple;
-	break;
+        if (diff == 0) goto next_tuple;
+        break;
       case SelCond::GT:
-	if (diff <= 0) goto next_tuple;
-	break;
+        if (diff <= 0) goto next_tuple;
+        break;
       case SelCond::LT:
-	if (diff >= 0) goto next_tuple;
-	break;
+        if (diff >= 0) goto next_tuple;
+        break;
       case SelCond::GE:
-	if (diff < 0) goto next_tuple;
-	break;
+        if (diff < 0) goto next_tuple;
+        break;
       case SelCond::LE:
-	if (diff > 0) goto next_tuple;
-	break;
+        if (diff > 0) goto next_tuple;
+        break;
       }
     }
 
@@ -101,15 +111,15 @@ RC SqlEngine::select(int attr, const string& table, const vector<SelCond>& cond)
 
     // print the tuple 
     switch (attr) {
-    case 1:  // SELECT key
-      fprintf(stdout, "%d\n", key);
-      break;
-    case 2:  // SELECT value
-      fprintf(stdout, "%s\n", value.c_str());
-      break;
-    case 3:  // SELECT *
-      fprintf(stdout, "%d '%s'\n", key, value.c_str());
-      break;
+      case 1:  // SELECT key
+        fprintf(stdout, "%d\n", key);
+        break;
+      case 2:  // SELECT value
+        fprintf(stdout, "%s\n", value.c_str());
+        break;
+      case 3:  // SELECT *
+        fprintf(stdout, "%d '%s'\n", key, value.c_str());
+        break;
     }
 
     // move to the next tuple
@@ -126,7 +136,7 @@ RC SqlEngine::select(int attr, const string& table, const vector<SelCond>& cond)
   // close the table file and return
   exit_select:
   rf.close();
-  return rc;
+  return rc;  
 }
 
 RC SqlEngine::load(const string& table, const string& loadfile, bool index)
