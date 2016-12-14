@@ -142,7 +142,80 @@ RC SqlEngine::select(int attr, const string& table, const vector<SelCond>& cond)
 
 RC SqlEngine::load(const string& table, const string& loadfile, bool index)
 {
-  /* your code here */
+  RecordFile wf; 
+  
+  ifstream rf(loadfile.c_str()); 
+  RecordId rid;  
+  BTreeIndex btree; 
+
+  RC rc = 0;
+
+  string line;
+  string value;
+
+  int    key;  
+  int    count;
+  int    diff;
+  if ((rc = wf.open(table + ".tbl", 'w') < 0)) {
+    fprintf(stderr, "Error: table %s file could not be opened for writing\n", table.c_str());
+    wf.close();
+    return rc;
+  }
+
+  if (!rf.is_open()) {
+    fprintf(stderr, "Error: record %s file could not be opening for reading\n", loadfile.c_str());
+    wf.close();
+    rf.close();
+    return RC_FILE_OPEN_FAILED;
+  }
+
+  if (index) {
+
+    rc = btree.open((table + ".idx").c_str(), 'w');
+    if (rc != 0) {
+      fprintf(stderr, "Error: index %s file could not be opened for writing\n", loadfile.c_str());
+      wf.close();
+      rf.close();
+      return rc; 
+    }
+  }
+  rid.pid = rid.sid = 0;
+
+  while (!rf.eof()) {
+    getline(rf, line);
+    if (!line.empty()) {
+      rc = parseLoadLine(line, key, value);
+      if (rc != 0) {
+        fprintf(stderr, "Error: cannot parse load line\n");
+        wf.close();
+        rf.close();
+        return rc;
+      } else { 
+        rc = wf.append(key, value, rid);
+        if (rc != 0) { 
+          fprintf(stderr, "Error: cannot append value to record file\n");
+          wf.close();
+          rf.close();
+          return rc;
+        }
+        if (index) { 
+          rc = btree.insert(key, rid);
+          if (rc != 0) { 
+            fprintf(stderr, "Error: cannot insert key into index %s file\n", loadfile.c_str());
+            wf.close();
+            rf.close();
+            return rc;
+          }
+        }
+      }
+    }
+  }
+
+  wf.close();
+  rf.close();
+  if (index) {
+    btree.close();
+  }
 
   return 0;
 }
