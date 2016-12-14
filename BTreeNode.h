@@ -5,6 +5,10 @@
  *
  * @author Junghoo "John" Cho <cho AT cs.ucla.edu>
  * @date 5/28/2008
+ *
+ * @author Zengwen Yuan
+ * @author Chris Buonocore
+ * @date 11/15/2015
  */
 
 #ifndef BTREENODE_H
@@ -12,31 +16,47 @@
 
 #include "RecordFile.h"
 #include "PageFile.h"
+
 #include <stdio.h>
 #include <stdlib.h>
 #include <string.h>
 
+// #define RID_SIZE sizeof(RecordId)
+// #define K_SIZE sizeof(int)
+// #define V_SIZE sizeof(int)
+// #define PID_SIZE sizeof(PageId)
+// #define P_SIZE PageFile::PAGE_SIZE
+// #define N_NL (int) P_SIZE / (K_SIZE + PID_SIZE) + 1
+// #define N_PTR (int) (P_SIZE - PID_SIZE) / (RID_SIZE+K_SIZE) + 1
+// #define L_OFFSET RID_SIZE+K_SIZE
+// #define NL_OFFSET PID_SIZE+K_SIZE
 
-#define P_SIZE 1024 // Tamaño de pagina (Page_Size)
+#define P_SIZE 1024 // Page size
 
-#define RID_SIZE 8  // Tamaño del record (RecordId size)
+#define RID_SIZE 8  // RecordId size
 #define PID_SIZE 4  // PageId size
-#define K_SIZE 4    // Tamaño de la llave(Key size)
+#define K_SIZE 4    // Key size
 
-#define L_OFFSET 12 // Offset de la hoja(Leaf offset)
-#define NL_OFFSET 8 // Offset de una no-hoja(Non-leaf offset)
+#define L_OFFSET 12 // Leaf node offset
+#define NL_OFFSET 8 // Non-leaf node offset
 
-#define N_PTR 86    // Numero maximo de punteros
-#define N_KEY 85    // Numero maximo de llaves
+#define N_PTR 86  // Max. number of pointers for leaf nodes
+#define N_KEY 85    // Max. number of keys for leaf nodes
 
-#define NONE -1     // Valor inicial de los nodos
-#define EC -100     // ERROR CODIGO
+#define NONE -1     // INIT VALUE FOR ALL THE NODES
+#define EC -100     // ERROR CODE
+
 /**
  * BTLeafNode: The class representing a B+tree leaf node.
  */
 class BTLeafNode {
   public:
+
+   /**
+    * Constructor
+    */
     BTLeafNode();
+
    /**
     * Insert the (key, rid) pair to the node.
     * Remember that all keys inside a B+tree node should be kept sorted.
@@ -116,6 +136,12 @@ class BTLeafNode {
     * @return 0 if successful. Return an error code if there is an error.
     */
     RC write(PageId pid, PageFile& pf);
+
+   /**
+    * Helper function
+    * Shift all the keys right to the desired position pos
+    * @param pos[IN] the position of the starting point
+    */
     void shiftKeysRight(int pos) {
         //shift element right by one
         char *loc = buffer + pos * L_OFFSET;
@@ -129,11 +155,24 @@ class BTLeafNode {
 
         free(temp);
     }
+
+    /**
+    * Helper function
+    * Prints out the keys to the screen
+    */
     void printKeys();
+
+    /**
+    * Helper function
+    * Initialize the buffer by copying the contents in buf to buffer
+    * @param buf[IN] the pointer to the buf
+    * @param size[IN] the number of bytes to copy
+    */
     void initBuffer(char *buf, size_t size) {
         memset(buffer, NONE, P_SIZE);
         memcpy(buffer, buf, size);
     }
+
   private:
    /**
     * The main memory buffer for loading the content of the disk page 
@@ -148,6 +187,11 @@ class BTLeafNode {
  */
 class BTNonLeafNode {
   public:
+    /**
+    * Constructor
+    */
+    BTNonLeafNode();
+
    /**
     * Insert a (key, pid) pair to the node.
     * Remember that all keys inside a B+tree node should be kept sorted.
@@ -211,12 +255,38 @@ class BTNonLeafNode {
     * @return 0 if successful. Return an error code if there is an error.
     */
     RC write(PageId pid, PageFile& pf);
+
+   /**
+    * If searchKey exists in the node, set eid to the index entry
+    * with searchKey and return 0. If not, set eid to the index entry
+    * immediately after the largest index key that is smaller than searchKey, 
+    * and return the error code RC_NO_SUCH_RECORD.
+    * Remember that keys inside a B+tree node are always kept sorted.
+    * @param searchKey[IN] the key to search for.
+    * @param eid[OUT] the index entry number with searchKey or immediately
+                      behind the largest key smaller than searchKey.
+    * @return 0 if searchKey is found. If not, RC_NO_SEARCH_RECORD.
+    */
     RC locate(int searchKey, int &eid);
+
+    /*
+     * Read the (key, pid) pair from the eid entry.
+     * @param eid[IN] the entry number to read the (key, rid) pair from
+     * @param key[OUT] the key from the entry
+     * @param pid[OUT] the PageId from the entry
+     * @return 0 if successful. Return an error code if there is an error.
+     */
     RC readEntry(int eid, int& key, PageId& pid);
+
+   /**
+    * Helper function
+    * Shift all the keys right to the desired position pos
+    * @param pos[IN] the position of the starting point
+    */
     void shiftKeysRight(int pos) {
-        
+        //shift element right by one
         char *loc = buffer + pos * NL_OFFSET;
-        
+        // char *loc = buffer+pos*8;
 
         char* temp = (char*) malloc(P_SIZE);
         memset(temp, NONE, P_SIZE);
@@ -224,19 +294,38 @@ class BTNonLeafNode {
         memcpy(temp, loc, (getKeyCount() + 1 - pos) * NL_OFFSET);
         loc += NL_OFFSET;
         memcpy(loc, temp, (getKeyCount() + 1 - pos) * NL_OFFSET);
+        // memcpy(temp,loc,(getKeyCount()+1-pos)*8);
+        // loc += 8;
+        // memcpy(loc, temp, (getKeyCount()+1-pos)*8);
         free(temp);
     }
+
+    /**
+    * Helper function
+    * Prints out the keys to the screen
+    */
     void printKeys();
+
+    /**
+    * Helper function
+    * Initialize the buffer by copying the contents in buf to buffer
+    * @param buf[IN] the pointer to the buf
+    * @param size[IN] the number of bytes to copy
+    */
     void initBuffer(char *buf, size_t size) {
         memset(buffer, NONE, P_SIZE);
         memcpy(buffer, buf, size);
     }
+
   private:
    /**
     * The main memory buffer for loading the content of the disk page 
     * that contains the node.
     */
     char buffer[PageFile::PAGE_SIZE];
+    // char *bufferStart;
+    
+    
 }; 
 
 #endif /* BTREENODE_H */
